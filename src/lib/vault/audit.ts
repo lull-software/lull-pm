@@ -14,14 +14,22 @@
  * that every one of those is a thing the user just asked for, on the note they were looking at.
  */
 
-import { parentsOn, parentViolation, type ParentedType } from '$lib/models/Parent';
+import {
+	bucketsOn,
+	parentViolation,
+	projectsOn,
+	readBucket,
+	type ParentedType
+} from '$lib/models/Parent';
 import { getBoolean } from './frontmatter';
+import { sameTarget } from './wikilink';
 import type { IndexedNote, VaultIndex } from './notes';
 
 export type FindingKind =
 	| 'unparseable-frontmatter'
-	| 'two-kinds'
 	| 'too-many-parents'
+	| 'bucket-mismatch'
+	| 'unknown-bucket'
 	| 'uncategorised'
 	| 'legacy-bucket-flag';
 
@@ -48,15 +56,20 @@ export interface Finding {
 
 export interface AuditOptions {
 	/**
-	 * The folders lull-pm reads its note *types* from — `Projects`, `Tasks`, `Companies`, `Goals`,
-	 * `Categories/Buckets`.
+	 * The folders lull-pm reads its note *types* from — `Projects`, `Tasks`, `Companies`,
+	 * `Notes/Goals`, `Buckets`.
 	 *
 	 * The inbox folder is deliberately not one of these. `_Inbox Notes/` is where Obsidian drops a
 	 * new note before it is anything in particular, so having no category there is the normal state,
 	 * not a problem to report.
 	 */
 	typedFolders: string[];
+	/** Where bucket notes live, so a note there without the `#buckets` tag can be pointed out. */
+	bucketsFolder?: string;
 }
+
+/** The tag that makes a note a bucket. */
+const BUCKET_TAG = 'buckets';
 
 /** The categories lull-pm understands, and the parent rule each one follows. */
 const TYPED_CATEGORIES: { category: string; type: ParentedType }[] = [
@@ -67,6 +80,11 @@ const TYPED_CATEGORIES: { category: string; type: ParentedType }[] = [
 
 export function auditVault(index: VaultIndex, options: AuditOptions): Finding[] {
 	const findings: Finding[] = [];
+
+	const buckets = index.byTag(BUCKET_TAG).map((note) => note.title);
+	const projectBuckets = new Map(
+		index.byCategory('Projects').map((note) => [note.title.toLowerCase(), readBucket(note.note)])
+	);
 
 	for (const note of index.all) {
 		// A note whose YAML does not parse is the only thing here that actually stops lull-pm: it
@@ -86,25 +104,32 @@ export function auditVault(index: VaultIndex, options: AuditOptions): Finding[] 
 		for (const { category, type } of TYPED_CATEGORIES) {
 			if (!claims(note, category)) continue;
 
-			const violation = parentViolation(note.note, type);
-			if (violation === 'two-kinds') {
-				findings.push({
-					kind: 'two-kinds',
-					severity: 'notice',
-					path: note.path,
-					title: note.title,
-					detail: connectionSummary(note, type),
-					suggestion: `A ${type} connects to one thing or the other, never both. lull-pm shows the more specific one and leaves the note alone.`
-				});
-			} else if (violation === 'too-many') {
+			if (parentViolation(note.note, type) === 'too-many') {
 				findings.push({
 					kind: 'too-many-parents',
 					severity: 'notice',
 					path: note.path,
 					title: note.title,
 					detail: connectionSummary(note, type),
-					suggestion: `A ${type} connects to exactly one thing. lull-pm shows the first and leaves the note alone.`
+					suggestion: `A ${type} sits in one bucket${type === 'task' ? ' and at most one project' : ''}. lull-pm shows the first and leaves the note alone.`
 				});
+			}
+
+			for (const bucket of bucketsOn(note.note)) {
+				if (buckets.some((known) => sameTarget(known, bucket))) continue;
+				findings.push({
+					kind: 'unknown-bucket',
+					severity: 'notice',
+					path: note.path,
+					title: note.title,
+					detail: `It is in bucket “${bucket}”, but no note called that is tagged #${BUCKET_TAG}.`,
+					suggestion: `Tag “${bucket}” with #${BUCKET_TAG} if it is a bucket, or pick an existing bucket for this ${type}.`
+				});
+			}
+
+			if (type === 'task') {
+				const mismatch = bucketMismatch(note, projectBuckets);
+				if (mismatch) findings.push(mismatch);
 			}
 		}
 
@@ -117,11 +142,22 @@ export function auditVault(index: VaultIndex, options: AuditOptions): Finding[] 
 				title: note.title,
 				detail: 'It carries `bucket: true`, from when a bucket was a flag on a project.',
 				suggestion:
-					'Buckets are notes in Categories/Buckets/ now. This flag does nothing; remove it when convenient.'
+					'Buckets are notes tagged #buckets in Buckets/ now. This flag does nothing; remove it when convenient.'
 			});
 		}
 
-		if (note.categories.length === 0) {
+		const inBucketsFolder =
+			options.bucketsFolder !== undefined && note.folder === options.bucketsFolder;
+		if (inBucketsFolder && !note.tags.includes(BUCKET_TAG)) {
+			findings.push({
+				kind: 'uncategorised',
+				severity: 'notice',
+				path: note.path,
+				title: note.title,
+				detail: `It sits in ${options.bucketsFolder}/ but is not tagged #${BUCKET_TAG}.`,
+				suggestion: `lull-pm finds buckets by the #${BUCKET_TAG} tag. Add it in Obsidian if this is a bucket.`
+			});
+		} else if (note.categories.length === 0 && !note.tags.includes(BUCKET_TAG)) {
 			const reason = whyItLooksLikeOurs(note, index, options.typedFolders);
 			if (reason) {
 				findings.push({
@@ -144,8 +180,9 @@ export function auditVault(index: VaultIndex, options: AuditOptions): Finding[] 
 export function countByKind(findings: Finding[]): Record<FindingKind, number> {
 	const counts = {
 		'unparseable-frontmatter': 0,
-		'two-kinds': 0,
 		'too-many-parents': 0,
+		'bucket-mismatch': 0,
+		'unknown-bucket': 0,
 		uncategorised: 0,
 		'legacy-bucket-flag': 0
 	} satisfies Record<FindingKind, number>;
@@ -214,8 +251,46 @@ function isFolderMainNote(note: IndexedNote, index: VaultIndex): boolean {
 
 /** The connections the note actually carries, named, so the user can see what to choose between. */
 function connectionSummary(note: IndexedNote, type: ParentedType): string {
-	const links = parentsOn(note.note, type).map((parent) => `${parent.kind} “${parent.name}”`);
+	const links = [
+		...bucketsOn(note.note).map((name) => `bucket “${name}”`),
+		...(type === 'task' ? projectsOn(note.note).map((name) => `project “${name}”`) : [])
+	];
 	return `It is connected to ${links.join(' and ')}.`;
+}
+
+/**
+ * A task whose project sits in one bucket while the task says another — or says none.
+ *
+ * Not cosmetic: `Tasks.base` finds a bucket's tasks with `buckets.contains(this)`, and lists a task
+ * with no bucket under Personal. So a task in a Ferret Media project that names no bucket shows up
+ * as personal in the vault's own dashboards, and nowhere on Ferret Media's.
+ *
+ * A project nobody has put in a bucket asks nothing of its tasks, and a project lull-pm cannot find
+ * is not this check's business.
+ */
+function bucketMismatch(
+	note: IndexedNote,
+	projectBuckets: Map<string, string | null>
+): Finding | null {
+	const project = projectsOn(note.note)[0];
+	if (!project) return null;
+
+	const expected = projectBuckets.get(project.toLowerCase());
+	if (!expected) return null;
+
+	const actual = readBucket(note.note);
+	if (actual && sameTarget(actual, expected)) return null;
+
+	return {
+		kind: 'bucket-mismatch',
+		severity: 'notice',
+		path: note.path,
+		title: note.title,
+		detail: actual
+			? `Its project “${project}” is in bucket “${expected}”, but the task says “${actual}”.`
+			: `Its project “${project}” is in bucket “${expected}”, but the task names no bucket — so Tasks.base lists it under Personal.`,
+		suggestion: `Pick the project again in lull-pm, or set buckets: [[${expected}]] in Obsidian.`
+	};
 }
 
 const SEVERITY_ORDER: Record<Severity, number> = { blocking: 0, notice: 1 };

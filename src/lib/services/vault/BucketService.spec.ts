@@ -3,11 +3,16 @@ import { MemoryVaultAdapter } from '$lib/vault/adapter.memory';
 import { indexVault } from '$lib/vault/notes';
 import { BucketService } from './BucketService';
 
-const BUCKET = `---
+/** The real vault's two bucket shapes: a bare one, and one that also claims a category. */
+const BUCKET = '---\ntags:\n  - buckets\n---\n';
+const COMPANY_BUCKET = `---
+tags:
+  - buckets
 categories:
-  - "[[Buckets]]"
-created: 2026-09-01
+  - "[[Categories/Companies|Companies]]"
+summary: Content production and media services for festivals, events, and clients.
 ---
+# Ferret Media
 `;
 
 let adapter: MemoryVaultAdapter;
@@ -16,9 +21,11 @@ let service: BucketService;
 beforeEach(async () => {
 	adapter = new MemoryVaultAdapter({
 		'.obsidian/app.json': '{}',
-		'Categories/Buckets/Work.md': BUCKET,
-		'Categories/Buckets/Personal.md': BUCKET,
-		'Projects/Marketing Website.md': '---\ncategories:\n  - "[[Projects]]"\n---\n'
+		'Buckets/Personal.md': BUCKET,
+		'Buckets/Ferret Media.md': COMPANY_BUCKET,
+		'Projects/Marketing Website.md': '---\ncategories:\n  - "[[Projects]]"\n---\n',
+		// A company that is not a bucket — the vault's Fig Sphinx.
+		'Companies/!Fig Sphinx.md': '---\ncategories:\n  - "[[Categories/Companies|Companies]]"\n---\n'
 	});
 	service = await BucketService.open(adapter);
 });
@@ -28,25 +35,39 @@ async function buckets() {
 }
 
 describe('reading', () => {
-	it('lists buckets alphabetically', async () => {
-		expect((await buckets()).map((b) => b.name)).toEqual(['Personal', 'Work']);
+	it('lists notes tagged #buckets, alphabetically', async () => {
+		expect((await buckets()).map((b) => b.name)).toEqual(['Ferret Media', 'Personal']);
 	});
 
-	it('does not confuse a project for a bucket', async () => {
-		expect((await buckets()).map((b) => b.name)).not.toContain('Marketing Website');
+	it('does not count a note that is not tagged, whatever its category', async () => {
+		expect((await buckets()).map((b) => b.name)).not.toContain('Fig Sphinx');
 	});
 
-	it('reads the created date', async () => {
-		expect((await service.readBucket('Categories/Buckets/Work.md')).created).toBe('2026-09-01');
+	it('reads the summary', async () => {
+		const [ferret, personal] = await buckets();
+		expect(ferret.summary).toBe(
+			'Content production and media services for festivals, events, and clients.'
+		);
+		expect(personal.summary).toBe('');
 	});
 
-	it('finds a bucket note wherever it lives, since category is what identifies it', async () => {
-		await adapter.write('Categories/Buckets/Nested/Side Projects.md', BUCKET);
+	it('finds a bucket wherever it lives, since the tag is what identifies it', async () => {
+		await adapter.write('Somewhere/Else/Side Projects.md', BUCKET);
 		expect((await buckets()).map((b) => b.name)).toContain('Side Projects');
 	});
 
+	it('accepts the tag however it is written', async () => {
+		await adapter.write('A.md', '---\ntags: buckets\n---\n');
+		await adapter.write('B.md', '---\ntags:\n  - "#Buckets"\n---\n');
+		expect((await buckets()).map((b) => b.name)).toEqual(expect.arrayContaining(['A', 'B']));
+	});
+
+	it('no longer reads the old categories: [[Buckets]] notes as buckets', async () => {
+		await adapter.write('Categories/Buckets/Work.md', '---\ncategories:\n  - "[[Buckets]]"\n---\n');
+		expect((await buckets()).map((b) => b.name)).not.toContain('Work');
+	});
+
 	it('ignores a project still carrying the retired bucket flag', async () => {
-		// That flag is dead. It is reported on the Overview page, never read as a bucket.
 		await adapter.write(
 			'Projects/Old.md',
 			'---\ncategories:\n  - "[[Projects]]"\nbucket: true\n---\n'
@@ -56,21 +77,19 @@ describe('reading', () => {
 });
 
 describe('creating', () => {
-	it('creates a findable bucket note in the configured folder', async () => {
-		const bucket = await service.createBucket('Side Quests', new Date('2026-09-19T12:00:00'));
+	it('creates a note in Buckets/ shaped exactly like Personal.md', async () => {
+		const bucket = await service.createBucket('Side Quests');
 
-		expect(bucket.path).toBe('Categories/Buckets/Side Quests.md');
-		expect(await adapter.read(bucket.path)).toBe(
-			'---\ncategories:\n  - "[[Buckets]]"\ncreated: 2026-09-19\n---\n'
-		);
+		expect(bucket.path).toBe('Buckets/Side Quests.md');
+		expect(await adapter.read(bucket.path)).toBe('---\ntags:\n  - buckets\n---\n');
 		expect((await buckets()).map((b) => b.name)).toContain('Side Quests');
 	});
 
-	it('does not create the category note or a base file — those are the user to write', async () => {
+	it('does not create a category note or a base file — those are the user’s to write', async () => {
 		await service.createBucket('Side Quests');
 
 		expect(await adapter.exists('Categories/Buckets.md')).toBe(false);
-		expect(await adapter.exists('Categories/Buckets/Buckets.base')).toBe(false);
+		expect(await adapter.exists('Buckets/Buckets.base')).toBe(false);
 	});
 
 	it('refuses an empty name', async () => {
@@ -78,6 +97,6 @@ describe('creating', () => {
 	});
 
 	it('refuses to overwrite an existing bucket', async () => {
-		await expect(service.createBucket('Work')).rejects.toThrow(/already exists/);
+		await expect(service.createBucket('Personal')).rejects.toThrow(/already exists/);
 	});
 });

@@ -102,17 +102,9 @@ export const taskManager = {
 		return mutate(path, (service) => service.setDoDate(path, doDate));
 	},
 
-	/** Connect the task to a bucket or a project — never both. */
+	/** Put the task in a bucket, or in a project and that project's bucket. */
 	setParent(path: string, parent: Parent | null): Promise<void> {
 		return mutate(path, (service) => service.setParent(path, parent));
-	},
-
-	setOrg(path: string, org: string[]): Promise<void> {
-		return mutate(path, (service) => service.setOrg(path, org));
-	},
-
-	setProjects(path: string, projects: string[]): Promise<void> {
-		return mutate(path, (service) => service.setProjects(path, projects));
 	},
 
 	toggleStep(path: string, index: number): Promise<void> {
@@ -121,10 +113,6 @@ export const taskManager = {
 
 	addStep(path: string, text: string): Promise<void> {
 		return mutate(path, (service) => service.addStep(path, text));
-	},
-
-	setWhy(path: string, text: string): Promise<void> {
-		return mutate(path, (service) => service.setWhy(path, text));
 	},
 
 	setNotes(path: string, text: string): Promise<void> {

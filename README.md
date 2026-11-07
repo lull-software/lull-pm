@@ -1,6 +1,6 @@
 # lull-pm
 
-lull's project-management surface — Tasks, Projects, Buckets, Companies and Goals — backed by an
+lull's project-management surface — Tasks, Projects, Buckets and Goals — backed by an
 Obsidian vault instead of a database.
 
 There is no database, no sync engine and no account — the vault is the data.
@@ -14,10 +14,12 @@ By its `categories:` property, not by the folder it sits in. That is what the va
 `Templates/Bases/Projects.base` opens with `categories.contains(link("Projects"))`, and Tasks.base
 and Companies.base do the same.
 
-It matters more than it sounds. In a real vault, `Companies/lull-Software/lull.app/!lull.app.md` is
-a project, `Schneider Electric/Schneider Electric.md` is a company, and neither lives in the folder
-its type is named after. A folder scan finds six companies where there are eight, and silently
-loses the two that `Projects.base` filters on.
+It matters more than it sounds. In a real vault, `Companies/lull Software/lull.app/!lull.app.md` is
+a project, and it does not live in the folder its type is named after.
+
+**Buckets are the one exception, and they use a tag rather than a folder or a category.** A
+bucket is a note tagged `#buckets` — Personal, lull Software, Ferret Media — because you tagged it
+one, whatever else the note is.
 
 Folders are still where _new_ notes go. They are just not what a note **is**.
 
@@ -54,15 +56,21 @@ frontmatter does not parse, which lull-pm will refuse to write.
 
 ## What connects to what
 
-    A Project connects to a Bucket or a Company.
-    A Task    connects to a Bucket or a Project.
-    A Goal    connects to a Bucket or a Company.
+    A Project sits in one Bucket.                                buckets:
+    A Goal    sits in one Bucket.                                buckets:
+    A Task    sits in one Bucket, and optionally in one Project   buckets: + projects:
+              in that bucket.
 
-Never both, never two. On disk it stays two frontmatter keys, because your `.base` files already
-filter on them — `org.contains(link("Ferret Media"))` has to keep working. Setting a connection
-writes one key and clears the other in the _same_ edit, so a note is never on disk in a state the
-rule forbids. A note that already breaks it is shown as the more specific connection and flagged on
-the Overview page; lull-pm does not pick a winner and write it back.
+There is no "company" connection. Anything you want to put work in, you tag `#buckets`.
+
+A task in a project carries the project's bucket as well, because that is what your `Tasks.base`
+reads. "Org Tasks" finds a bucket's tasks with `buckets.contains(this)`, and "Personal" is
+`buckets.isEmpty()`. A task that named only its project would vanish from its bucket's dashboard and
+turn up under Personal. So picking a project for a task writes `projects:` and `buckets:` in the
+_same_ edit, and the Overview page flags a task whose bucket disagrees with its project's.
+
+`org:` is not a bucket. lull-pm neither reads nor writes it, so notes that still carry it keep it
+exactly as they are.
 
 ## Status
 
@@ -70,9 +78,8 @@ the Overview page; lull-pm does not pick a winner and write it back.
 - [x] Frontmatter, wikilinks, checkboxes, sections
 - [x] Tasks — drag-and-drop status board
 - [x] Projects — per-project task list, per-type status pipelines
-- [x] Buckets — notes in `Categories/Buckets/`
-- [x] Companies — read-only; found by category, wherever they live
-- [x] Goals — `Goals/` notes, grouped by status
+- [x] Buckets — notes tagged `#buckets`, in `Buckets/`
+- [x] Goals — `Notes/Goals/` notes, grouped by status
 - [x] Inbox — the Inbox status, surfaced as its own page for triage
 - [x] Overview — everything lull-pm could not place, reported and never repaired
 
@@ -125,18 +132,16 @@ Settings lists what it found and opens each one in Obsidian.
 
 ## Data model
 
-| Note type | Category        | Default folder        | Key frontmatter                                                    |
-| --------- | --------------- | --------------------- | ------------------------------------------------------------------ |
-| Task      | `[[Tasks]]`     | `Tasks/`              | `status`, `priority`, `projects` xor `bucket`, `due`, `do`, `done` |
-| Project   | `[[Projects]]`  | `Projects/`           | `status`, `type`, `org` xor `bucket`                               |
-| Company   | `[[Companies]]` | `Companies/`          | read-only                                                          |
-| Goal      | `[[Goals]]`     | `Goals/`              | `status`, `org` xor `bucket`                                       |
-| Bucket    | `[[Buckets]]`   | `Categories/Buckets/` | `created`                                                          |
+| Note type | Found by                   | Default folder | Key frontmatter                                                   |
+| --------- | -------------------------- | -------------- | ----------------------------------------------------------------- |
+| Task      | `categories: [[Tasks]]`    | `Tasks/`       | `status`, `priority`, `buckets`, `projects`, `due`, `do`, `done`  |
+| Project   | `categories: [[Projects]]` | `Projects/`    | `status`, `type`, `buckets`, `clients`                            |
+| Goal      | `categories: [[Goals]]`    | `Notes/Goals/` | `status`, `buckets`                                               |
+| Bucket    | `tags: [buckets]`          | `Buckets/`     | `summary` (read); a new one is written exactly like `Personal.md` |
 
-`org:` is the **company**, which is what it has always held in the vault — `[[Schneider Electric]]`,
-`[[Ferret Media]]`, `[[Student Events]]`. Earlier versions of this README called it a Bucket; that
-was never true of the data. A task's `org:` is read and displayed but never rewritten: a task's
-company follows from its project, and that property is maintained by hand.
+Buckets have had four shapes in this app's life: a distinct `org:` value, a `bucket: true` flag on
+a project, notes in `Categories/Buckets/`, and now the `#buckets` tag, which is what the vault
+settled on.
 
 lull-pm creates note _folders_ when it writes into them. It does not create category notes,
 `.base` files, or templates — those are yours.

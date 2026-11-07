@@ -32,7 +32,11 @@
 		) {
 			void projectManager.load();
 		}
-		if (vaultState.status === 'ready' && bucketState.buckets.length === 0 && !bucketState.isLoading) {
+		if (
+			vaultState.status === 'ready' &&
+			bucketState.buckets.length === 0 &&
+			!bucketState.isLoading
+		) {
 			void bucketManager.load();
 		}
 	});
@@ -53,23 +57,20 @@
 	});
 
 	const buckets = $derived(bucketState.buckets);
-	// A task is in a bucket when its *parent* is that bucket — `org:` is the company, not a bucket.
+	// A task is in a bucket by its `buckets:` — including a task in a project, which carries its
+	// project's bucket. That is how Tasks.base finds a bucket's tasks too.
 	const bucketCounts = $derived(
 		Object.fromEntries(
 			buckets.map((bucket) => [
 				bucket.name,
-				taskState.tasks.filter(
-					(task) => task.parent?.kind === 'bucket' && task.parent.name === bucket.name
-				).length
+				taskState.tasks.filter((task) => task.bucket === bucket.name).length
 			])
 		)
 	);
 	const visibleTasks = $derived(
 		selectedBucket === null
 			? taskState.tasks
-			: taskState.tasks.filter(
-					(task) => task.parent?.kind === 'bucket' && task.parent.name === selectedBucket
-				)
+			: taskState.tasks.filter((task) => task.bucket === selectedBucket)
 	);
 	const wheneverTasks = $derived(visibleTasks.filter((task) => task.status === 'Whenever'));
 

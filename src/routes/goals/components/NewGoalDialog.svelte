@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goalManager } from '$lib/managers/GoalManager.svelte';
 	import { bucketState } from '$lib/managers/BucketManager.svelte';
-	import { companyState } from '$lib/managers/CompanyManager.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import {
@@ -25,31 +24,12 @@
 
 	let name = $state('');
 	let status = $state('');
-	let parentKey = $state('');
+	let bucket = $state('');
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 
-	/**
-	 * One list, both kinds — which is what makes the rule unbreakable here: there is a single
-	 * selection, so a goal cannot come out of this dialog connected to two things.
-	 */
-	const options = $derived([
-		...companyState.companies.map((company) => ({
-			key: `company:${company.name}`,
-			label: company.name,
-			kind: 'Company'
-		})),
-		...bucketState.buckets.map((bucket) => ({
-			key: `bucket:${bucket.name}`,
-			label: bucket.name,
-			kind: 'Bucket'
-		}))
-	]);
-
-	function parentFrom(key: string): Parent | null {
-		if (key === '') return null;
-		const [kind, ...rest] = key.split(':');
-		return { kind: kind as Parent['kind'], name: rest.join(':') };
+	function parentFrom(name: string): Parent | null {
+		return name === '' ? null : { kind: 'bucket', name };
 	}
 
 	async function submit(event: Event) {
@@ -61,11 +41,11 @@
 		try {
 			const goal = await goalManager.createGoal(name.trim(), {
 				status: status || undefined,
-				parent: parentFrom(parentKey)
+				parent: parentFrom(bucket)
 			});
 			name = '';
 			status = '';
-			parentKey = '';
+			bucket = '';
 			onCreated(goal.path);
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -81,9 +61,8 @@
 			<AlertDialogHeader>
 				<AlertDialogTitle>New goal</AlertDialogTitle>
 				<AlertDialogDescription>
-					Creates a note in <code class="font-mono">Goals/</code> with
-					<code class="font-mono">categories: [[Goals]]</code>. A goal connects to a company
-					<em>or</em> a bucket — never both.
+					Creates a note in <code class="font-mono">Notes/Goals/</code> with
+					<code class="font-mono">categories: [[Goals]]</code>, in the bucket you pick.
 				</AlertDialogDescription>
 			</AlertDialogHeader>
 
@@ -103,14 +82,14 @@
 					{/each}
 				</div>
 
-				{#if options.length > 0}
+				{#if bucketState.buckets.length > 0}
 					<select
-						bind:value={parentKey}
+						bind:value={bucket}
 						class="rounded-md border border-border bg-transparent px-3 py-2 text-sm"
 					>
-						<option value="">Not connected</option>
-						{#each options as option (option.key)}
-							<option value={option.key}>{option.kind} — {option.label}</option>
+						<option value="">No bucket</option>
+						{#each bucketState.buckets as option (option.path)}
+							<option value={option.name}>{option.name}</option>
 						{/each}
 					</select>
 				{/if}

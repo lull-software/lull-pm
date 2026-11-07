@@ -33,11 +33,11 @@
 		{/if}
 	</div>
 
-	{#if task.org.length > 0 || task.projects.length > 0}
+	{#if task.bucket || task.projects.length > 0}
 		<div class="flex flex-wrap gap-1">
-			{#each task.org as org (org)}
-				<Badge variant="secondary">{org}</Badge>
-			{/each}
+			{#if task.bucket}
+				<Badge variant="secondary">{task.bucket}</Badge>
+			{/if}
 			{#each task.projects as project (project)}
 				<Badge variant="outline">{project}</Badge>
 			{/each}

@@ -7,7 +7,7 @@ import { ProjectService } from './ProjectService';
 const TEMPLATE = `---
 categories:
   - "[[Projects]]"
-org:
+buckets:
 clients:
 status:
 created: <% tp.date.now("YYYY-MM-DD") %>
@@ -24,7 +24,7 @@ end:
 const REAL_PROJECT = `---
 categories:
   - "[[Projects]]"
-org:
+buckets:
   - "[[Student Events]]"
 clients:
 status: In Progress
@@ -144,11 +144,11 @@ describe('editing', () => {
 });
 
 describe('ProjectService parents', () => {
-	it('reads org as the company a project belongs to', async () => {
+	it('reads buckets: as the bucket a project sits in', async () => {
 		const service = await ProjectService.open(vault());
 		const project = await service.readProject('Projects/Marketing Website.md');
 
-		expect(project.parent).toEqual({ kind: 'company', name: 'Student Events' });
+		expect(project.parent).toEqual({ kind: 'bucket', name: 'Student Events' });
 		expect(project.parentViolation).toBeNull();
 	});
 
@@ -156,7 +156,7 @@ describe('ProjectService parents', () => {
 		const adapter = vault();
 		await adapter.write(
 			'Projects/Short - Lighting is everything.md',
-			'---\ncategories:\n  - "[[Projects]]"\norg:\n  - "[[Ferret Media]]"\nstatus:\n  - Idea\n---\n'
+			'---\ncategories:\n  - "[[Projects]]"\nbuckets:\n  - "[[Ferret Media]]"\nstatus:\n  - Idea\n---\n'
 		);
 		const service = await ProjectService.open(adapter);
 
@@ -165,7 +165,7 @@ describe('ProjectService parents', () => {
 		);
 	});
 
-	it('moves a project from a company to a bucket, clearing the company', async () => {
+	it('moves a project to another bucket', async () => {
 		const adapter = vault();
 		const service = await ProjectService.open(adapter);
 		const project = await service.setParent('Projects/Marketing Website.md', {
@@ -176,11 +176,11 @@ describe('ProjectService parents', () => {
 		expect(project.parent).toEqual({ kind: 'bucket', name: 'Personal' });
 
 		const raw = await adapter.read('Projects/Marketing Website.md');
-		expect(raw).toContain('bucket:\n  - "[[Personal]]"');
+		expect(raw).toContain('buckets:\n  - "[[Personal]]"');
 		expect(raw).not.toContain('Student Events');
 	});
 
-	it('changes only the two keys the rule owns, byte for byte', async () => {
+	it('changes only the bucket line, in place, byte for byte', async () => {
 		const adapter = vault();
 		const service = await ProjectService.open(adapter);
 		await service.setParent('Projects/Marketing Website.md', { kind: 'bucket', name: 'Personal' });
@@ -190,15 +190,14 @@ describe('ProjectService parents', () => {
 			`---
 categories:
   - "[[Projects]]"
-org:
+buckets:
+  - "[[Personal]]"
 clients:
 status: In Progress
 created: 2026-08-01
 date: "[[2026-08-01]]"
 start: 2026-08-01
 end:
-bucket:
-  - "[[Personal]]"
 ---
 
 ## Tasks
@@ -207,19 +206,23 @@ bucket:
 		);
 	});
 
-	it('creates a project already connected to a company', async () => {
+	it('creates a project already in a bucket', async () => {
 		const service = await ProjectService.open(vault());
 		const project = await service.createProject('Website Ferret Media', {
-			parent: { kind: 'company', name: 'Ferret Media' }
+			parent: { kind: 'bucket', name: 'Ferret Media' }
 		});
 
-		expect(project.parent).toEqual({ kind: 'company', name: 'Ferret Media' });
+		expect(project.parent).toEqual({ kind: 'bucket', name: 'Ferret Media' });
 	});
 
 	it('refuses to connect a project to another project', async () => {
 		const service = await ProjectService.open(vault());
 		await expect(
-			service.setParent('Projects/Marketing Website.md', { kind: 'project', name: 'Other' })
+			service.setParent('Projects/Marketing Website.md', {
+				kind: 'project',
+				name: 'Other',
+				bucket: null
+			})
 		).rejects.toThrow(/cannot be connected to a project/);
 	});
 

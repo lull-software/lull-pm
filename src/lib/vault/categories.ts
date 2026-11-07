@@ -40,3 +40,20 @@ export function hasCategory(note: ParsedNote, category: CategoryName): boolean {
 	const wanted = category.toLowerCase();
 	return categoryNames(note).some((name) => name.toLowerCase() === wanted);
 }
+
+/**
+ * Every tag a note's frontmatter carries, lowercased, without a leading `#`.
+ *
+ * Buckets are found this way: the vault marks a bucket note with `tags: [buckets]` rather than a
+ * category, because a bucket can *also* be something else — six of the eight are companies too, and
+ * say so in `categories:`. Obsidian writes tags without the hash in frontmatter, but a hand-typed
+ * `#buckets` or a lone `tags: buckets` mean the same thing, so both are accepted.
+ */
+export function tagNames(note: ParsedNote): string[] {
+	return getStringList(note, 'tags').map((tag) => tag.trim().replace(/^#/, '').toLowerCase());
+}
+
+/** True when the note's frontmatter carries this tag. Case-insensitive, as Obsidian's tags are. */
+export function hasTag(note: ParsedNote, tag: string): boolean {
+	return tagNames(note).includes(tag.replace(/^#/, '').toLowerCase());
+}

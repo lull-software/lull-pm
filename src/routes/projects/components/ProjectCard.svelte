@@ -24,8 +24,7 @@
 		{/if}
 		{#if project.parent}
 			<span class="text-xs text-muted-foreground">
-				{project.parent.kind === 'company' ? '🏢' : '🪣'}
-				{project.parent.name}
+				🪣 {project.parent.name}
 			</span>
 		{/if}
 		<span class="text-xs text-muted-foreground">

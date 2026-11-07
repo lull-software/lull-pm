@@ -25,7 +25,7 @@ import type { Project } from '$lib/models/Project';
 
 export interface CreateProjectOptions {
 	status?: string;
-	/** What the project is connected to: a company or a bucket. */
+	/** The bucket the project sits in. */
 	parent?: Parent | null;
 	/**
 	 * Which template to build the note from. Defaults to whatever Templater maps the destination
@@ -127,9 +127,7 @@ export class ProjectService {
 		return this.readProject(path);
 	}
 
-	/**
-	 * Connect the project to a company or a bucket — never both. See `TaskService.setParent`.
-	 */
+	/** Put the project in a bucket, or in none. See `models/Parent.ts`. */
 	async setParent(path: string, parent: Parent | null): Promise<Project> {
 		await editNote(this.adapter, path, (raw) => setParent(raw, 'project', parent));
 		return this.readProject(path);
@@ -160,7 +158,7 @@ function blankProject(today: Date): string {
 		'---\n' +
 		'categories:\n' +
 		'  - "[[Projects]]"\n' +
-		'org:\n' +
+		'buckets:\n' +
 		'clients:\n' +
 		'status:\n' +
 		`created: ${created}\n` +

@@ -3,13 +3,15 @@ import { MemoryVaultAdapter } from '$lib/vault/adapter.memory';
 import { indexVault } from '$lib/vault/notes';
 import { TaskService } from './TaskService';
 
-/** Copied verbatim from the real vault's Templates/Task Template.md, plus the new `do:` property. */
+/**
+ * The real vault's Templates/Task Template.md, with lull-pm's `Inbox` status and `do:` property.
+ */
 const TEMPLATE = `---
 categories:
   - "[[Tasks]]"
 status: Inbox
 priority: Medium
-org:
+buckets:
 projects:
 due:
 do:
@@ -17,11 +19,6 @@ created: <% tp.date.now("YYYY-MM-DD") %>
 date: "[[<% tp.date.now('YYYY-MM-DD') %>]]"
 done:
 ---
-
-## Why
-
-
-
 ## Steps
 -  [ ]
 
@@ -29,13 +26,16 @@ done:
 ## Notes
 `;
 
-/** Copied verbatim from a real task note in the vault, with `status: Todo` renamed to `Unstarted`. */
+/**
+ * A real task note from the vault, with `status: Todo` renamed to `Unstarted` and its bucket in
+ * `buckets:`. It still has the `## Why` section older tasks carry; lull-pm leaves that alone.
+ */
 const REAL_TASK = `---
 categories:
   - "[[Tasks]]"
 status: Unstarted
 priority: High
-org:
+buckets:
   - "[[Student Events]]"
 projects:
   - "[[Marketing-Website student events]]"
@@ -86,11 +86,10 @@ describe('reading', () => {
 		expect(task.name).toBe('Convert ASE Marketing Website to Figma');
 		expect(task.status).toBe('Unstarted');
 		expect(task.priority).toBe('High');
-		expect(task.org).toEqual(['Student Events']);
+		expect(task.bucket).toBe('Student Events');
 		expect(task.projects).toEqual(['Marketing-Website student events']);
 		expect(task.due).toBeNull();
 		expect(task.doDate).toBe('2026-08-18');
-		expect(task.why).toContain('Silke can give feedback');
 		expect(task.notes).toContain('All TODOs');
 		expect(task.steps).toHaveLength(4);
 		expect(task.steps[0].state).toBe('x');
@@ -134,18 +133,17 @@ describe('creating', () => {
 		expect(task.created).toBe('2026-09-08');
 	});
 
-	it('applies the given priority, org, projects, due and do date on creation', async () => {
+	it('applies the given priority, parent, due and do date on creation', async () => {
 		const task = await service.createTask('Prioritised task', {
 			priority: 'Urgent',
-			org: ['lull'],
-			projects: ['lull.app'],
+			parent: { kind: 'project', name: 'lull.app', bucket: 'lull Software' },
 			due: '2026-09-20',
 			doDate: '2026-09-18',
 			today: new Date('2026-09-08T12:00:00')
 		});
 
 		expect(task.priority).toBe('Urgent');
-		expect(task.org).toEqual(['lull']);
+		expect(task.bucket).toBe('lull Software');
 		expect(task.projects).toEqual(['lull.app']);
 		expect(task.due).toBe('2026-09-20');
 		expect(task.doDate).toBe('2026-09-18');
@@ -250,11 +248,11 @@ describe('steps', () => {
 describe('body sections', () => {
 	const path = 'Tasks/Convert ASE Marketing Website to Figma.md';
 
-	it('replaces Why without touching Steps or Notes', async () => {
-		const task = await service.setWhy(path, 'A new reason.');
-		expect(task.why).toBe('A new reason.');
+	it('replaces Notes without touching Steps, or the Why section older tasks still have', async () => {
+		const task = await service.setNotes(path, 'A new note.');
+		expect(task.notes).toBe('A new note.');
 		expect(task.steps).toHaveLength(4);
-		expect(task.notes).toContain('All TODOs');
+		expect(await adapter.read(path)).toContain('## Why\nSo Silke can give feedback');
 	});
 
 	it('creates a Notes section when the note has none', async () => {
@@ -267,40 +265,56 @@ describe('body sections', () => {
 describe('TaskService parents', () => {
 	const path = 'Tasks/Convert ASE Marketing Website to Figma.md';
 
-	it('reads the project a task is connected to, and not its org', async () => {
+	it('reads a task in a project, and the bucket it carries alongside', async () => {
 		const service = await TaskService.open(vault());
 		const task = await service.readTask(path);
 
-		// The note carries both keys, as real task notes do. Only `projects` is the parent: `org`
-		// is the company, and a task's company follows from its project.
-		expect(task.parent).toEqual({ kind: 'project', name: 'Marketing-Website student events' });
-		expect(task.org).toEqual(['Student Events']);
+		// Both keys, as the Task template writes them: the project, and that project's bucket.
+		expect(task.parent).toEqual({
+			kind: 'project',
+			name: 'Marketing-Website student events',
+			bucket: 'Student Events'
+		});
+		expect(task.bucket).toBe('Student Events');
 		expect(task.parentViolation).toBeNull();
 	});
 
-	it('moving a task to a bucket clears its project, and the reverse', async () => {
+	it('moving a task to a bucket clears its project, and the reverse sets both', async () => {
 		const adapter = vault();
 		const service = await TaskService.open(adapter);
 
 		const moved = await service.setParent(path, { kind: 'bucket', name: 'Personal' });
 		expect(moved.parent).toEqual({ kind: 'bucket', name: 'Personal' });
+		expect(moved.bucket).toBe('Personal');
 		expect(moved.projects).toEqual([]);
 		expect(moved.parentViolation).toBeNull();
 
 		const back = await service.setParent(path, {
 			kind: 'project',
-			name: 'Marketing-Website student events'
+			name: 'Marketing-Website student events',
+			bucket: 'Student Events'
 		});
-		expect(back.parent).toEqual({ kind: 'project', name: 'Marketing-Website student events' });
+		expect(back.bucket).toBe('Student Events');
+		expect(back.projects).toEqual(['Marketing-Website student events']);
 		expect(await adapter.read(path)).not.toContain('[[Personal]]');
 	});
 
-	it('leaves the company on org when the parent changes', async () => {
+	it('writes both keys on their own lines, leaving the rest byte for byte', async () => {
 		const adapter = vault();
-		await (await TaskService.open(adapter)).setParent(path, { kind: 'bucket', name: 'Personal' });
+		const before = await adapter.read(path);
+		await (
+			await TaskService.open(adapter)
+		).setParent(path, {
+			kind: 'project',
+			name: 'Linker',
+			bucket: 'Ferret Media'
+		});
 
-		// Rewriting a property the user maintains by hand is not lull-pm's to do.
-		expect(await adapter.read(path)).toContain('org:\n  - "[[Student Events]]"');
+		expect(await adapter.read(path)).toBe(
+			before
+				.replace('"[[Student Events]]"', '"[[Ferret Media]]"')
+				.replace('"[[Marketing-Website student events]]"', '"[[Linker]]"')
+		);
 	});
 
 	it('disconnects a task entirely', async () => {
@@ -311,24 +325,17 @@ describe('TaskService parents', () => {
 		expect(await adapter.read(path)).toContain('do: 2026-08-18');
 	});
 
-	it('refuses to connect a task to a company', async () => {
-		const service = await TaskService.open(vault());
-		await expect(
-			service.setParent(path, { kind: 'company', name: 'Ferret Media' })
-		).rejects.toThrow(/cannot be connected to a company/);
-	});
-
-	it('flags a task that breaks the rule instead of silently picking one', async () => {
+	it('flags a task in two buckets instead of silently picking one', async () => {
 		const adapter = vault();
 		await adapter.write(
 			'Tasks/Broken.md',
-			'---\ncategories:\n  - "[[Tasks]]"\nstatus: Inbox\nprojects:\n  - "[[A]]"\n' +
-				'bucket:\n  - "[[Personal]]"\n---\n'
+			'---\ncategories:\n  - "[[Tasks]]"\nstatus: Inbox\nbuckets:\n  - "[[Personal]]"\n' +
+				'  - "[[Ferret Media]]"\n---\n'
 		);
 		const task = await (await TaskService.open(adapter)).readTask('Tasks/Broken.md');
 
-		expect(task.parentViolation).toBe('two-kinds');
-		expect(task.parent).toEqual({ kind: 'project', name: 'A' });
+		expect(task.parentViolation).toBe('too-many');
+		expect(task.parent).toEqual({ kind: 'bucket', name: 'Personal' });
 	});
 
 	it('flags a task connected to two projects', async () => {

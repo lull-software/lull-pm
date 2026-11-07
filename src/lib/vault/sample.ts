@@ -1,10 +1,11 @@
 /**
  * A small stand-in vault, used when lull-pm runs in a plain browser tab with no filesystem to reach.
  *
- * It mirrors the shape of a real vault — Obsidian config, task/project templates, and a handful of
- * notes across a couple of companies (the `org:` property) — so `npm run dev`
+ * It mirrors the shape of a real vault — Obsidian config, task/project templates, a `Buckets/`
+ * folder of `#buckets`-tagged notes, and projects and tasks pointing at them
+ * with `buckets:` — so `npm run dev`
  * exercises the same code paths the desktop build does. One task sits in each status, so every board
- * column and the Inbox page have something to show, and three notes deliberately do not fit the
+ * column and the Inbox page have something to show, and four notes deliberately do not fit the
  * structure, so the Overview page shows findings rather than only its empty state.
  */
 
@@ -15,7 +16,7 @@ categories:
   - "[[Tasks]]"
 status: Inbox
 priority: Medium
-org:
+buckets:
 projects:
 due:
 do:
@@ -23,9 +24,6 @@ created: <% tp.date.now("YYYY-MM-DD") %>
 date: "[[<% tp.date.now('YYYY-MM-DD') %>]]"
 done:
 ---
-
-## Why
-
 ## Steps
 -  [ ]
 
@@ -35,7 +33,7 @@ done:
 const PROJECT_TEMPLATE = `---
 categories:
   - "[[Projects]]"
-org:
+buckets:
 clients:
 status:
 created: <% tp.date.now("YYYY-MM-DD") %>
@@ -54,7 +52,7 @@ categories:
 type: Content
 statuses: [Idea, Scripting, Filming, Editing, Review, Published]
 status: Idea
-org:
+buckets:
 content channel:
 created: <% tp.date.now("YYYY-MM-DD") %>
 ---
@@ -87,7 +85,7 @@ export function createSampleVault(): MemoryVaultAdapter {
 			'Projects/Marketing Website.md': `---
 categories:
   - "[[Projects]]"
-org:
+buckets:
   - "[[Student Events]]"
 clients:
 status: In Progress
@@ -103,8 +101,8 @@ end:
 			'Projects/lull.app.md': `---
 categories:
   - "[[Projects]]"
-org:
-  - "[[lull]]"
+buckets:
+  - "[[lull Software]]"
 clients:
 status: In Progress
 created: 2026-04-24
@@ -121,7 +119,7 @@ categories:
   - "[[Tasks]]"
 status: Done
 priority: High
-org:
+buckets:
   - "[[Student Events]]"
 projects:
   - "[[Marketing Website]]"
@@ -131,15 +129,12 @@ created: 2026-08-05
 date: "[[2026-08-05]]"
 done: 2026-08-09
 ---
-
-## Why
-So Silke can give feedback on the design before it gets built out.
-
 ## Steps
 -  [x] Sketch the layout
 -  [x] Pick colours
 
 ## Notes
+So Silke can give feedback on the design before it gets built out.
 `,
 
 			'Tasks/Sketch the task board layout.md': `---
@@ -147,8 +142,8 @@ categories:
   - "[[Tasks]]"
 status: In Progress
 priority: Urgent
-org:
-  - "[[lull]]"
+buckets:
+  - "[[lull Software]]"
 projects:
   - "[[lull.app]]"
 due:
@@ -157,16 +152,13 @@ created: 2026-09-01
 date: "[[2026-09-01]]"
 done:
 ---
-
-## Why
-Need something to look at before wiring up real data.
-
 ## Steps
 -  [x] Group by status
 -  [ ] Add a priority badge
 -  [ ] Add a due-date flag
 
 ## Notes
+Need something to look at before wiring up real data.
 `,
 
 			'Tasks/Draft the quarterly report.md': `---
@@ -174,8 +166,8 @@ categories:
   - "[[Tasks]]"
 status: Unstarted
 priority: Medium
-org:
-  - "[[lull]]"
+buckets:
+  - "[[lull Software]]"
 projects:
 due: 2026-09-20
 do: 2026-09-18
@@ -183,10 +175,6 @@ created: 2026-09-05
 date: "[[2026-09-05]]"
 done:
 ---
-
-## Why
-Leadership wants numbers before the next planning cycle.
-
 ## Steps
 -  [ ]
 
@@ -198,7 +186,8 @@ categories:
   - "[[Tasks]]"
 status: Whenever
 priority: Low
-org:
+buckets:
+  - "[[Personal]]"
 projects:
 due:
 do:
@@ -206,10 +195,6 @@ created: 2026-08-20
 date: "[[2026-08-20]]"
 done:
 ---
-
-## Why
-No rush, just want to get to it eventually.
-
 ## Steps
 -  [ ]
 
@@ -221,8 +206,7 @@ categories:
   - "[[Tasks]]"
 status: Inbox
 priority: Low
-org:
-bucket:
+buckets:
   - "[[Personal]]"
 projects:
 due:
@@ -231,9 +215,6 @@ created: 2026-09-05
 date: "[[2026-09-05]]"
 done:
 ---
-
-## Why
-
 ## Steps
 -  [ ] Milk
 -  [ ] Eggs
@@ -241,49 +222,94 @@ done:
 ## Notes
 `,
 
-			'Companies/lull-Software/lull.md': `---
+			/* --- Buckets: notes tagged #buckets --- */
+
+			'Buckets/lull Software.md': `---
+tags:
+  - buckets
 categories:
   - "[[Categories/Companies|Companies]]"
-created: 2026-01-10
+summary: Privacy-minded productivity software built around measurement and control.
 ---
+# lull
 
 ## Projects
+
+![[Projects.base#Org Projects]]
 `,
 
-			'Goals/Ship lull-pm 1.0.md': `---
+			'Buckets/Student Events.md': `---
+tags:
+  - buckets
+categories:
+  - "[[Categories/Companies|Companies]]"
+summary: Marketing and video content for student events in Antwerp.
+---
+`,
+
+			'Buckets/Personal.md': `---
+tags:
+  - buckets
+---
+`,
+
+			// Not tagged #buckets, like the real vault's Fig Sphinx — so Rebrand below, which points at
+			// it, shows up on the Overview page.
+			'Companies/!Fig Sphinx.md': `---
+categories:
+  - "[[Categories/Companies|Companies]]"
+summary: A community-governed virtual country concept.
+---
+`,
+
+			'Notes/Goals/Ship lull-pm 1.0.md': `---
 categories:
   - "[[Goals]]"
 status: In Progress
-org:
-  - "[[lull]]"
+buckets:
+  - "[[lull Software]]"
 created: 2026-09-01
 ---
 `,
 
-			'Categories/Buckets/Personal.md': `---
+			'Notes/Goals/Run a half marathon.md': `---
 categories:
-  - "[[Buckets]]"
-created: 2026-04-01
----
-`,
-
-			'Categories/Buckets/Work.md': `---
-categories:
-  - "[[Buckets]]"
-created: 2026-04-01
+  - "[[Goals]]"
+status: Idea
+buckets:
+  - "[[Personal]]"
 ---
 `,
 
 			/* --- Notes that deliberately do not fit, so the Overview page shows its real state --- */
 
-			// Connected to a company and a bucket at once. The rule says one or the other.
+			// In a project that sits in Student Events, but names no bucket itself — Tasks.base would
+			// list it under Personal.
+			'Tasks/Film the pitch video.md': `---
+categories:
+  - "[[Tasks]]"
+status: Unstarted
+priority: High
+buckets:
+projects:
+  - "[[Marketing Website]]"
+due: 2026-09-30
+do:
+created: 2026-09-10
+done:
+---
+## Steps
+-  [ ]
+
+## Notes
+`,
+
+			// Points at a bucket that does not exist as one.
 			'Projects/Rebrand.md': `---
 categories:
   - "[[Projects]]"
-org:
-  - "[[lull]]"
-bucket:
-  - "[[Personal]]"
+buckets:
+  - "[[Fig Sphinx]]"
 status: Idea
 created: 2026-09-01
 ---

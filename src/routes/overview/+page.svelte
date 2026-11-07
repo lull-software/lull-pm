@@ -35,27 +35,34 @@
 				'Their frontmatter does not parse. lull-pm will show them, but it refuses every write to a note it cannot read cleanly — changing one could damage the rest of the file.'
 		},
 		{
-			kind: 'two-kinds',
-			heading: 'Connected to two things at once',
+			kind: 'too-many-parents',
+			heading: 'In more than one bucket or project',
 			blurb:
-				'A project belongs to a company or a bucket; a task to a project or a bucket. Never both. lull-pm shows the more specific one and changes nothing.'
+				'A project or goal sits in one bucket; a task in one bucket and at most one project. lull-pm shows the first and changes nothing.'
 		},
 		{
-			kind: 'too-many-parents',
-			heading: 'Connected to more than one of the same kind',
-			blurb: 'One parent each. lull-pm shows the first and changes nothing.'
+			kind: 'bucket-mismatch',
+			heading: 'Task and its project disagree on the bucket',
+			blurb:
+				'A task in a project belongs in that project’s bucket — Tasks.base finds a bucket’s tasks by buckets:, and lists a task with none under Personal.'
+		},
+		{
+			kind: 'unknown-bucket',
+			heading: 'Pointing at a bucket that is not one',
+			blurb:
+				'buckets: links here to a note that is not tagged #buckets, so lull-pm cannot offer it in any picker.'
 		},
 		{
 			kind: 'uncategorised',
 			heading: 'Invisible to lull-pm',
 			blurb:
-				'lull-pm finds notes by their `categories:` property, the same way your .base files do. These look like they belong to it but claim no category, so they never show up.'
+				'lull-pm finds notes by their `categories:` property, and buckets by the #buckets tag — the same way your .base files do. These look like they belong to it but carry neither, so they never show up.'
 		},
 		{
 			kind: 'legacy-bucket-flag',
 			heading: 'Using the retired bucket flag',
 			blurb:
-				'`bucket: true` dates from when a bucket was a property of a project. Buckets are their own notes now, and the flag does nothing.'
+				'`bucket: true` dates from when a bucket was a property of a project. Buckets are notes tagged #buckets now, and the flag does nothing.'
 		}
 	];
 

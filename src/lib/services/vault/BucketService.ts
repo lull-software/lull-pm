@@ -1,24 +1,21 @@
 /**
- * Buckets, read and written as notes in `Categories/Buckets/`.
+ * Buckets, read as notes tagged `#buckets` and written into `Buckets/`.
  *
- * Same discipline as `TaskService` and `ProjectService`: reads come from the shared vault index,
- * by category rather than by folder, and every mutation goes through `editNote`.
+ * Same discipline as `TaskService` and `ProjectService`: reads come from the shared vault index —
+ * by tag, wherever the note lives — and creating one goes through `createNote`.
  *
- * lull-pm creates `Categories/Buckets/` when it writes the first bucket, because it has to put the
- * note somewhere. It does not create `Categories/Buckets.md` or a `Buckets.base` — those are the
- * user's to write, and lull-pm works whether or not they exist.
+ * lull-pm creates the `Buckets/` folder if it has to, because it has to put the note somewhere. It
+ * does not write a category note or a `.base` for buckets; those are the user's.
  */
 
 import { createNote, joinPath, noteName, type VaultAdapter } from '$lib/vault/adapter';
-import { getString, parseNote } from '$lib/vault/frontmatter';
+import { getString, parseNote, type ParsedNote } from '$lib/vault/frontmatter';
 import type { VaultIndex } from '$lib/vault/notes';
 import { readLullConfig } from '$lib/vault/settings';
-import { formatDate } from '$lib/vault/templater';
-import { formatWikilink } from '$lib/vault/wikilink';
 import type { Bucket } from '$lib/models/Bucket';
 
-/** The category a bucket note claims. */
-export const BUCKET_CATEGORY = 'Buckets';
+/** The tag a bucket note carries. */
+export const BUCKET_TAG = 'buckets';
 
 export class BucketService {
 	private constructor(
@@ -38,48 +35,36 @@ export class BucketService {
 	 */
 	listBuckets(index: VaultIndex): Bucket[] {
 		return index
-			.byCategory(BUCKET_CATEGORY)
-			.map((note) => ({
-				path: note.path,
-				name: note.title,
-				created: getString(note.note, 'created') ?? null
-			}))
+			.byTag(BUCKET_TAG)
+			.map((note) => toBucket(note.path, note.note, note.title))
 			.sort((a, b) => a.name.localeCompare(b.name));
 	}
 
 	async readBucket(path: string): Promise<Bucket> {
-		const note = parseNote(await this.adapter.read(path));
-		return {
-			path,
-			name: noteName(path).replace(/^!/, ''),
-			created: getString(note, 'created') ?? null
-		};
+		return toBucket(path, parseNote(await this.adapter.read(path)));
 	}
 
 	/**
 	 * Create a bucket note.
 	 *
-	 * The frontmatter is the minimum that makes it findable — the category link, and the `created`
-	 * date every other note type in this vault carries. Anything else the user wants on it, they add
-	 * in Obsidian.
+	 * The frontmatter is exactly what `Buckets/Personal.md` carries — the tag, and nothing else.
+	 * A summary, a dashboard, anything more: the user adds those in Obsidian.
 	 */
-	async createBucket(name: string, today: Date = new Date()): Promise<Bucket> {
+	async createBucket(name: string): Promise<Bucket> {
 		const trimmed = name.trim();
 		if (trimmed === '') throw new Error('A bucket needs a name.');
 
 		const path = joinPath(this.folder, `${trimmed}.md`);
-		const created = formatDate(today, { format: 'YYYY-MM-DD', offset: 0 });
-
-		await createNote(
-			this.adapter,
-			path,
-			'---\n' +
-				'categories:\n' +
-				`  - "${formatWikilink(BUCKET_CATEGORY)}"\n` +
-				`created: ${created}\n` +
-				'---\n'
-		);
-
+		await createNote(this.adapter, path, `---\ntags:\n  - ${BUCKET_TAG}\n---\n`);
 		return this.readBucket(path);
 	}
+}
+
+function toBucket(path: string, note: ParsedNote, title?: string): Bucket {
+	return {
+		path,
+		name: title ?? noteName(path).replace(/^!/, ''),
+		summary: getString(note, 'summary') ?? '',
+		created: getString(note, 'created') ?? null
+	};
 }

@@ -21,12 +21,9 @@ export interface Project {
 	 * created from. Empty string means the default type. See `models/ProjectType.ts`.
 	 */
 	type: string;
-	/**
-	 * What this project is connected to: a company **or** a bucket, never both.
-	 * See `models/Parent.ts`.
-	 */
+	/** The bucket this project sits in — its `buckets:`. See `models/Parent.ts`. */
 	parent: Parent | null;
-	/** Set when the note's links break the one-parent rule, so the UI can offer to fix it. */
+	/** Set when the note names more than one bucket, so the UI can offer to fix it. */
 	parentViolation: ParentViolation | null;
 	/** `YYYY-MM-DD`, or null when unset. */
 	created: string | null;

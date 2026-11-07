@@ -41,7 +41,12 @@
 	inputValue={value ?? ''}
 	bind:open
 	onValueChange={(next) => {
-		if (next) onValueChange?.(next);
+		// Clicking the item that is already selected deselects it, which arrives as ''. Treat it as
+		// choosing that item again instead: there is no empty choice here, and re-choosing is how a
+		// task picks its project again to pick up the project's bucket. An unchanged choice is a
+		// no-op for every caller, so this never writes anything on its own.
+		const chosen = next || value;
+		if (chosen) onValueChange?.(chosen);
 		search = '';
 	}}
 >

@@ -22,20 +22,19 @@ export interface Task {
 	status: TaskStatus;
 	priority: TaskPriority;
 	/**
-	 * What this task is connected to: a bucket **or** a project, never both.
-	 *
-	 * The authority on the task's placement. `org` and `projects` below are the raw keys it is
-	 * derived from, kept because the vault's `.base` views read them directly.
+	 * What this task is connected to, as the UI shows it: its project when it has one, else its
+	 * bucket. See `models/Parent.ts`.
 	 */
 	parent: Parent | null;
-	/** Set when the note's links break the one-parent rule, so the UI can offer to fix it. */
+	/** Set when the note's links break the rule, so the UI can offer to fix it. */
 	parentViolation: ParentViolation | null;
 	/**
-	 * The `org:` property, read as wikilink names — the **company**, which is what this key has
-	 * always held in the vault (`[[Schneider Electric]]`, `[[Ferret Media]]`). It is not a task's
-	 * parent: a task's company follows from its project. lull-pm reads it and leaves it alone.
+	 * The bucket this task sits in — its `buckets:`.
+	 *
+	 * Set whether or not the task is also in a project: the vault's `Tasks.base` finds a bucket's
+	 * tasks by `buckets:` alone, so a task in a project carries that project's bucket as well.
 	 */
-	org: string[];
+	bucket: string | null;
 	/** Project(s) this task belongs to, as wikilink names. The raw form of a `project` parent. */
 	projects: string[];
 	/** The deadline, `YYYY-MM-DD`, or null when unset. */
@@ -46,8 +45,6 @@ export interface Task {
 	created: string | null;
 	/** `YYYY-MM-DD` the task was marked done, or null. */
 	done: string | null;
-	/** Content of the `## Why` section, trimmed. */
-	why: string;
 	/** Checkboxes found in the `## Steps` section. */
 	steps: Checkbox[];
 	/** Content of the `## Notes` section, trimmed. */

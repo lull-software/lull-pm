@@ -86,16 +86,16 @@
 				</div>
 
 				<div>
-					<span class="mb-1 block text-xs text-muted-foreground">Connected to</span>
+					<span class="mb-1 block text-xs text-muted-foreground">Bucket</span>
 					<ParentPicker
 						type="project"
 						parent={project.parent}
-						placeholder="Search companies and buckets…"
+						placeholder="Search buckets…"
 						onChange={(parent) => projectManager.setParent(currentPath, parent)}
 					/>
 					{#if project.parentViolation}
 						<p class="pt-1 text-xs text-destructive">
-							This note is connected to more than one thing. Picking one here will fix it.
+							This note names more than one bucket. Picking one here will fix it.
 						</p>
 					{/if}
 				</div>

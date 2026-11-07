@@ -51,7 +51,10 @@ export const auditManager = {
 			const config = await readLullConfig(vaultState.adapter);
 			const index = await indexVault(vaultState.adapter);
 
-			auditState.findings = auditVault(index, { typedFolders: typedFolders(config) });
+			auditState.findings = auditVault(index, {
+				typedFolders: typedFolders(config),
+				bucketsFolder: config.folders.buckets
+			});
 			auditState.notesChecked = index.all.length;
 			auditState.ranAt = Date.now();
 		} catch (error) {

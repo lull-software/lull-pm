@@ -12,7 +12,7 @@
  */
 
 import { noteFolder, noteName, type VaultAdapter } from './adapter';
-import { categoryNames } from './categories';
+import { categoryNames, tagNames } from './categories';
 import { parseNote, type ParsedNote } from './frontmatter';
 
 export interface IndexedNote {
@@ -31,6 +31,8 @@ export interface IndexedNote {
 	/** Containing folder, vault-relative. Empty string for the vault root. */
 	folder: string;
 	categories: string[];
+	/** Frontmatter tags, lowercased, no `#`. Buckets are found by tag — see `tagNames`. */
+	tags: string[];
 	note: ParsedNote;
 }
 
@@ -39,6 +41,8 @@ export interface VaultIndex {
 	all: IndexedNote[];
 	/** Notes claiming a category, by basename, case-insensitively. */
 	byCategory(category: string): IndexedNote[];
+	/** Notes carrying a frontmatter tag, case-insensitively, `#` optional. */
+	byTag(tag: string): IndexedNote[];
 	byPath(path: string): IndexedNote | undefined;
 	/**
 	 * Notes with no `categories:` at all.
@@ -65,6 +69,7 @@ export async function indexVault(adapter: VaultAdapter): Promise<VaultIndex> {
 					title: stripBang(file.name),
 					folder: file.folder,
 					categories: categoryNames(note),
+					tags: tagNames(note),
 					note
 				};
 			})
@@ -85,6 +90,10 @@ export async function indexVault(adapter: VaultAdapter): Promise<VaultIndex> {
 	return {
 		all,
 		byCategory: (category) => byName.get(category.toLowerCase()) ?? [],
+		byTag: (tag) => {
+			const wanted = tag.replace(/^#/, '').toLowerCase();
+			return all.filter((note) => note.tags.includes(wanted));
+		},
 		byPath: (path) => byPath.get(path),
 		uncategorised: all.filter((note) => note.categories.length === 0)
 	};

@@ -84,7 +84,7 @@ export const goalManager = {
 		return mutate(path, (service) => service.setStatus(path, status));
 	},
 
-	/** Connect the goal to a company or a bucket — never both. */
+	/** Put the goal in a bucket, or in none. */
 	setParent(path: string, parent: Parent | null): Promise<void> {
 		return mutate(path, (service) => service.setParent(path, parent));
 	},

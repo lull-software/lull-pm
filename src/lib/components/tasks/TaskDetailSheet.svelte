@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { taskManager, taskState } from '$lib/managers/TaskManager.svelte';
 	import ParentPicker from '$lib/components/parents/ParentPicker.svelte';
+	import { projectState } from '$lib/managers/ProjectManager.svelte';
 	import { vaultManager } from '$lib/managers/VaultManager.svelte';
 	import {
 		Sheet,
@@ -28,6 +29,17 @@
 	let { open = $bindable(), path }: Props = $props();
 
 	const task = $derived(path ? (taskState.tasks.find((t) => t.path === path) ?? null) : null);
+
+	/**
+	 * The bucket the task's project sits in, when the task says something else — or nothing. The
+	 * vault's Tasks.base files such a task under the wrong bucket (or Personal), so it is worth a line.
+	 */
+	const projectBucket = $derived.by(() => {
+		if (task?.parent?.kind !== 'project') return null;
+		const name = task.parent.name.toLowerCase();
+		const bucket = projectState.projects.find((p) => p.name.toLowerCase() === name)?.parent?.name;
+		return bucket && bucket !== task.bucket ? bucket : null;
+	});
 
 	let newStep = $state('');
 
@@ -137,28 +149,18 @@
 					/>
 					{#if task.parentViolation}
 						<p class="pt-1 text-xs text-destructive">
-							This note is connected to more than one thing. Picking one here will fix it.
+							This note names more than one bucket or project. Picking one here will fix it.
 						</p>
-					{:else if task.org.length > 0}
+					{:else if projectBucket}
 						<p class="pt-1 text-xs text-muted-foreground">
-							Company: {task.org.join(', ')} — from <code class="font-mono">org:</code>, which
-							lull-pm reads but never changes.
+							Its project is in {projectBucket}, but this task says {task.bucket ?? 'no bucket'}.
+							Pick the project again to move it there.
+						</p>
+					{:else if task.parent?.kind === 'project' && task.bucket}
+						<p class="pt-1 text-xs text-muted-foreground">
+							In bucket {task.bucket}, through its project.
 						</p>
 					{/if}
-				</div>
-
-				<div>
-					<h3 class="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-						Why
-					</h3>
-					<textarea
-						class="min-h-16 w-full resize-y rounded-md border border-input bg-transparent p-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-						value={task.why}
-						onblur={(e) => {
-							const text = (e.currentTarget as HTMLTextAreaElement).value;
-							if (text !== task.why) void taskManager.setWhy(currentPath, text);
-						}}
-					></textarea>
 				</div>
 
 				<div>

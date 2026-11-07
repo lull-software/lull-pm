@@ -126,6 +126,10 @@ export interface LullPmConfig {
 	folders: {
 		tasks: string;
 		projects: string;
+		/**
+		 * Not a note type any more — lull-pm has no companies page. Kept so the overview still looks
+		 * here for main notes with no category, like `Companies/lull Software/lull.app/!lull.app.md`.
+		 */
 		companies: string;
 		goals: string;
 		buckets: string;
@@ -139,8 +143,8 @@ export const DEFAULT_CONFIG: LullPmConfig = {
 		tasks: 'Tasks',
 		projects: 'Projects',
 		companies: 'Companies',
-		goals: 'Goals',
-		buckets: 'Categories/Buckets',
+		goals: 'Notes/Goals',
+		buckets: 'Buckets',
 		inbox: '_Inbox Notes'
 	}
 };

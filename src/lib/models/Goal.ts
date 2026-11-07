@@ -3,9 +3,9 @@ import type { Parent, ParentViolation } from './Parent';
 /**
  * A goal is a note that says `categories: [[Goals]]`.
  *
- * The vault has a `Categories/Goals.md` note already but no goals written against it yet, so this
- * is the one type lull-pm meets empty. Its shape is therefore the smallest thing that is useful and
- * consistent with the others: a name, a freeform status, and the one connection the rule allows.
+ * The vault keeps them in `Notes/Goals/` — "Goals FOR 2026", "Long Term Goals" — as plain notes
+ * with nothing but the category, so the shape here is the smallest thing that is useful: a name, a
+ * freeform status, and the one bucket it sits in. All three are optional on read.
  *
  * Like projects, status is not pinned to a fixed set — `GOAL_STATUSES` are quick picks offered in
  * the UI, never enforced on read.
@@ -19,7 +19,7 @@ export interface Goal {
 	name: string;
 	/** Freeform. Empty string means unset. */
 	status: string;
-	/** What this goal is connected to: a company **or** a bucket, never both. */
+	/** The bucket this goal sits in. See `models/Parent.ts`. */
 	parent: Parent | null;
 	/** Set when the note's links break the one-parent rule, so the UI can offer to fix it. */
 	parentViolation: ParentViolation | null;

@@ -17,7 +17,6 @@ import {
 import {
 	getScalar,
 	getString,
-	getStringList,
 	parseNote,
 	setFrontmatterValue,
 	setFrontmatterValues,
@@ -27,9 +26,15 @@ import {
 import type { VaultIndex } from '$lib/vault/notes';
 import { appendSection, findSection, replaceSectionContent } from '$lib/vault/section';
 import { applyTemplate, formatDate } from '$lib/vault/templater';
-import { asWikilink, formatWikilink } from '$lib/vault/wikilink';
 import { readLullConfig } from '$lib/vault/settings';
-import { parentViolation, readParent, setParent, type Parent } from '$lib/models/Parent';
+import {
+	parentViolation,
+	projectsOn,
+	readBucket,
+	readParent,
+	setParent,
+	type Parent
+} from '$lib/models/Parent';
 import {
 	TASK_PRIORITIES,
 	TASK_STATUSES,
@@ -43,10 +48,8 @@ export const TASK_CATEGORY = 'Tasks';
 
 export interface CreateTaskOptions {
 	priority?: TaskPriority;
-	/** What the task is connected to: a bucket or a project. Takes precedence over `projects`. */
+	/** What the task is connected to: a bucket, or a project (and so that project's bucket). */
 	parent?: Parent | null;
-	org?: string[];
-	projects?: string[];
 	due?: string;
 	doDate?: string;
 	today?: Date;
@@ -102,13 +105,9 @@ export class TaskService {
 
 		const edits: Record<string, FrontmatterValue> = {};
 		if (options.priority) edits.priority = options.priority;
-		if (options.org) edits.org = options.org.map((name) => formatWikilink(name));
-		if (options.projects) edits.projects = options.projects.map((name) => formatWikilink(name));
 		if (options.due) edits.due = options.due;
 		if (options.doDate) edits.do = options.doDate;
 		if (Object.keys(edits).length > 0) content = setFrontmatterValues(content, edits);
-		// Applied last so it has the final say: a parent is the one-of-two rule, and it must win
-		// over anything `projects` above may have written.
 		if (options.parent !== undefined) content = setParent(content, 'task', options.parent);
 
 		await createNote(this.adapter, path, content);
@@ -162,7 +161,7 @@ export class TaskService {
 	}
 
 	/**
-	 * Connect the task to a bucket or a project — never both, and never two.
+	 * Put the task in a bucket, or in a project and that project's bucket.
 	 *
 	 * One `editNote` call around one `setParent`, so the rule holds for every version of the file
 	 * that ever exists on disk. Re-derives nothing from outside the callback, as `editNote`'s retry
@@ -173,35 +172,9 @@ export class TaskService {
 		return this.readTask(path);
 	}
 
-	async setOrg(path: string, org: string[]): Promise<Task> {
-		await editNote(this.adapter, path, (raw) =>
-			setFrontmatterValue(
-				raw,
-				'org',
-				org.map((name) => formatWikilink(name))
-			)
-		);
-		return this.readTask(path);
-	}
-
-	async setProjects(path: string, projects: string[]): Promise<Task> {
-		await editNote(this.adapter, path, (raw) =>
-			setFrontmatterValue(
-				raw,
-				'projects',
-				projects.map((name) => formatWikilink(name))
-			)
-		);
-		return this.readTask(path);
-	}
-
 	/* ---------------------------------------------------------------------- */
 	/* Body sections                                                            */
 	/* ---------------------------------------------------------------------- */
-
-	async setWhy(path: string, text: string): Promise<Task> {
-		return this.setSection(path, 'Why', text);
-	}
 
 	async setNotes(path: string, text: string): Promise<Task> {
 		return this.setSection(path, 'Notes', text);
@@ -262,13 +235,12 @@ function toTask(path: string, note: ParsedNote, title?: string, text?: string): 
 		priority,
 		parent: readParent(note, 'task'),
 		parentViolation: parentViolation(note, 'task'),
-		org: getStringList(note, 'org').map((value) => asWikilink(value).name),
-		projects: getStringList(note, 'projects').map((value) => asWikilink(value).name),
+		bucket: readBucket(note),
+		projects: projectsOn(note),
 		due: getString(note, 'due') ?? null,
 		doDate: getString(note, 'do') ?? null,
 		created: getString(note, 'created') ?? null,
 		done: getString(note, 'done') ?? null,
-		why: sectionText(raw, 'Why'),
 		steps: stepsIn(raw),
 		notes: sectionText(raw, 'Notes')
 	};
@@ -306,7 +278,7 @@ function blankTask(today: Date): string {
 		'  - "[[Tasks]]"\n' +
 		'status: Inbox\n' +
 		'priority: Medium\n' +
-		'org:\n' +
+		'buckets:\n' +
 		'projects:\n' +
 		'due:\n' +
 		'do:\n' +
@@ -314,7 +286,6 @@ function blankTask(today: Date): string {
 		`date: "[[${created}]]"\n` +
 		'done:\n' +
 		'---\n\n' +
-		'## Why\n\n' +
 		'## Steps\n-  [ ] \n\n' +
 		'## Notes\n'
 	);

@@ -57,9 +57,6 @@
 			.sort((a, b) => (b.created ?? '').localeCompare(a.created ?? ''))
 	);
 
-	// A bucket is a project note flagged bucket: true — this is the controlled vocabulary a task's
-	// org field is assigned from, not just whatever values happen to already be in use.
-
 	function openTask(path: string) {
 		selectedPath = path;
 		detailOpen = true;

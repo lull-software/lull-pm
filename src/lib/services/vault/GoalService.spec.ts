@@ -7,7 +7,7 @@ const GOAL = `---
 categories:
   - "[[Goals]]"
 status: In Progress
-org:
+buckets:
   - "[[Ferret Media]]"
 created: 2026-09-01
 ---
@@ -19,7 +19,7 @@ let service: GoalService;
 beforeEach(async () => {
 	adapter = new MemoryVaultAdapter({
 		'.obsidian/app.json': '{}',
-		'Goals/Ship lull-pm.md': GOAL,
+		'Notes/Goals/Ship lull-pm.md': GOAL,
 		'Projects/Marketing Website.md': '---\ncategories:\n  - "[[Projects]]"\n---\n'
 	});
 	service = await GoalService.open(adapter);
@@ -34,9 +34,9 @@ describe('reading', () => {
 		expect((await goals()).map((g) => g.name)).toEqual(['Ship lull-pm']);
 	});
 
-	it('reads org as the company a goal belongs to', async () => {
-		const goal = await service.readGoal('Goals/Ship lull-pm.md');
-		expect(goal.parent).toEqual({ kind: 'company', name: 'Ferret Media' });
+	it('reads buckets: as the bucket a goal sits in', async () => {
+		const goal = await service.readGoal('Notes/Goals/Ship lull-pm.md');
+		expect(goal.parent).toEqual({ kind: 'bucket', name: 'Ferret Media' });
 		expect(goal.status).toBe('In Progress');
 	});
 
@@ -61,22 +61,24 @@ describe('creating', () => {
 			today: new Date('2026-09-19T12:00:00')
 		});
 
-		expect(goal.path).toBe('Goals/Learn Rust.md');
+		expect(goal.path).toBe('Notes/Goals/Learn Rust.md');
 		expect(goal.parent).toEqual({ kind: 'bucket', name: 'Personal' });
 		expect(await adapter.read(goal.path)).toBe(
-			'---\ncategories:\n  - "[[Goals]]"\nstatus: Idea\ncreated: 2026-09-19\nbucket:\n  - "[[Personal]]"\n---\n'
+			'---\ncategories:\n  - "[[Goals]]"\nstatus: Idea\ncreated: 2026-09-19\nbuckets:\n  - "[[Personal]]"\n---\n'
 		);
 	});
 
 	it('creates a goal with no connection at all', async () => {
 		const goal = await service.createGoal('Someday', { today: new Date('2026-09-19T12:00:00') });
 		expect(goal.parent).toBeNull();
-		expect(await adapter.read(goal.path)).not.toContain('bucket:');
+		expect(await adapter.read(goal.path)).not.toContain('buckets:');
 	});
 
 	it('refuses to connect a goal to a project', async () => {
 		await expect(
-			service.createGoal('Wrong', { parent: { kind: 'project', name: 'Marketing Website' } })
+			service.createGoal('Wrong', {
+				parent: { kind: 'project', name: 'Marketing Website', bucket: null }
+			})
 		).rejects.toThrow(/goal cannot be connected to a project/);
 	});
 
@@ -86,7 +88,7 @@ describe('creating', () => {
 });
 
 describe('editing', () => {
-	const path = 'Goals/Ship lull-pm.md';
+	const path = 'Notes/Goals/Ship lull-pm.md';
 
 	it('changes status', async () => {
 		expect((await service.setStatus(path, 'Done')).status).toBe('Done');
@@ -98,7 +100,7 @@ describe('editing', () => {
 		expect(await adapter.read(path)).toBe(before);
 	});
 
-	it('moves a goal from a company to a bucket, clearing the company', async () => {
+	it('moves a goal to another bucket', async () => {
 		const goal = await service.setParent(path, { kind: 'bucket', name: 'Personal' });
 
 		expect(goal.parent).toEqual({ kind: 'bucket', name: 'Personal' });

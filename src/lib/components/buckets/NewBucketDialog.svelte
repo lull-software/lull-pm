@@ -47,10 +47,9 @@
 			<AlertDialogHeader>
 				<AlertDialogTitle>New bucket</AlertDialogTitle>
 				<AlertDialogDescription>
-					Creates a note in <code class="font-mono">Categories/Buckets/</code> with
-					<code class="font-mono">categories: [[Buckets]]</code>, which is how lull-pm and your
-					<code class="font-mono">.base</code> files both find it. The folder is created if it does not
-					exist; nothing else in your vault is touched.
+					Creates a note in <code class="font-mono">Buckets/</code> tagged
+					<code class="font-mono">#buckets</code>, which is how lull-pm finds it. Projects, goals
+					and tasks then point at it with <code class="font-mono">buckets: [[Name]]</code>.
 				</AlertDialogDescription>
 			</AlertDialogHeader>
 

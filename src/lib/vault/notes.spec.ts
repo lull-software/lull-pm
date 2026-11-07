@@ -129,6 +129,7 @@ describe('mainNotesByFolder', () => {
 			title: stripBang(path.slice(path.lastIndexOf('/') + 1, -3)),
 			folder: path.slice(0, path.lastIndexOf('/')),
 			categories: ['Projects'],
+			tags: [],
 			note: { hasFrontmatter: false } as IndexedNote['note']
 		});
 

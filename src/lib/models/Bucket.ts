@@ -1,22 +1,20 @@
 /**
- * A bucket is a note in `Categories/Buckets/`.
+ * A bucket is a note tagged `#buckets` — one of the handful of areas everything else sits in.
  *
- * It was not always. Buckets have been two other things in this app's short life: a distinct value
- * of the `org:` property, and then a `bucket: true` flag on a project note. Both were ways of
- * avoiding a new note type, and both were wrong in the same way — a bucket is a thing you name,
- * write about, and link to, which is exactly what a note is for.
+ * In the vault they live in `Buckets/`: Personal, Ferret Media, lull Software, Schneider Electric,
+ * Karel de Grote Hogeschool and so on. A note is a bucket because the user tagged it one, and for
+ * no other reason — not its folder, and not whatever `categories:` it also claims.
  *
- * So a bucket is now a note like any other, found the way every other note type is found: by
- * `categories: [[Buckets]]`. lull-pm creates the folder when it first writes one. The
- * `Categories/Buckets.md` category note and any `.base` view are written by hand in Obsidian —
- * lull-pm reads whatever is there and creates neither.
+ * Projects, goals and tasks point at a bucket with `buckets: [[Name]]`.
  */
 
 export interface Bucket {
 	/** Vault-relative path. This is the bucket's identity. */
 	path: string;
-	/** Basename without `.md` — the bucket's name, and what `bucket:` links to. */
+	/** Basename without `.md`, `!` stripped — what `buckets:` links to. */
 	name: string;
+	/** The note's `summary:` property, or empty string. */
+	summary: string;
 	/** `YYYY-MM-DD`, or null when unset. */
 	created: string | null;
 }

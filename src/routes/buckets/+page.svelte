@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { taskManager, taskState } from '$lib/managers/TaskManager.svelte';
+	import { projectManager, projectState } from '$lib/managers/ProjectManager.svelte';
 	import { bucketManager, bucketState } from '$lib/managers/BucketManager.svelte';
 	import { vaultManager, vaultState } from '$lib/managers/VaultManager.svelte';
 	import NewBucketDialog from '$lib/components/buckets/NewBucketDialog.svelte';
@@ -16,6 +17,7 @@
 		if (vaultState.status !== 'ready') return;
 		if (bucketState.buckets.length === 0 && !bucketState.isLoading) void bucketManager.load();
 		if (taskState.tasks.length === 0 && !taskState.isLoading) void taskManager.load();
+		if (projectState.projects.length === 0 && !projectState.isLoading) void projectManager.load();
 	});
 
 	// Follow the vault: a bucket note written in Obsidian should show up without a manual refresh.
@@ -23,20 +25,29 @@
 		const adapter = vaultState.adapter;
 		if (!adapter) return;
 
-		let disposeBuckets: (() => void) | undefined;
-		let disposeTasks: (() => void) | undefined;
-		void adapter.watch(() => bucketManager.refreshQuietly()).then((fn) => (disposeBuckets = fn));
-		void adapter.watch(() => taskManager.refreshQuietly()).then((fn) => (disposeTasks = fn));
-		return () => {
-			disposeBuckets?.();
-			disposeTasks?.();
-		};
+		const disposers: (() => void)[] = [];
+		for (const refresh of [
+			() => bucketManager.refreshQuietly(),
+			() => taskManager.refreshQuietly(),
+			() => projectManager.refreshQuietly()
+		]) {
+			void adapter.watch(refresh).then((fn) => disposers.push(fn));
+		}
+		return () => disposers.forEach((dispose) => dispose());
 	});
 
+	// Everything that names the bucket in `buckets:` — a task in a project included, since it
+	// carries its project's bucket.
+	function projectCountFor(bucket: Bucket): number {
+		return projectState.projects.filter((project) => project.parent?.name === bucket.name).length;
+	}
+
 	function taskCountFor(bucket: Bucket): number {
-		return taskState.tasks.filter(
-			(task) => task.parent?.kind === 'bucket' && task.parent.name === bucket.name
-		).length;
+		return taskState.tasks.filter((task) => task.bucket === bucket.name).length;
+	}
+
+	function plural(count: number, word: string): string {
+		return `${count} ${count === 1 ? word : `${word}s`}`;
 	}
 </script>
 
@@ -69,9 +80,8 @@
 	{:else if bucketState.buckets.length === 0}
 		<div class="rounded-lg border border-dashed p-10 text-center">
 			<p class="text-sm text-muted-foreground">
-				No buckets yet. A bucket is a note in <code class="font-mono">Categories/Buckets/</code>
-				with
-				<code class="font-mono">categories: [[Buckets]]</code>.
+				No buckets yet. A bucket is a note tagged <code class="font-mono">#buckets</code>, kept in
+				<code class="font-mono">Buckets/</code>.
 			</p>
 			<Button class="mt-4" variant="outline" size="sm" onclick={() => (newBucketOpen = true)}>
 				Create the first one
@@ -85,9 +95,11 @@
 					onclick={() => vaultManager.openInObsidian(bucket.path)}
 				>
 					<p class="text-sm font-medium leading-snug">{bucket.name}</p>
+					{#if bucket.summary}
+						<p class="line-clamp-2 text-xs text-muted-foreground">{bucket.summary}</p>
+					{/if}
 					<span class="text-xs text-muted-foreground">
-						{taskCountFor(bucket)}
-						{taskCountFor(bucket) === 1 ? 'task' : 'tasks'}
+						{plural(projectCountFor(bucket), 'project')} · {plural(taskCountFor(bucket), 'task')}
 					</span>
 				</Card>
 			{/each}

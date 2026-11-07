@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goalManager, goalState } from '$lib/managers/GoalManager.svelte';
 	import { bucketManager, bucketState } from '$lib/managers/BucketManager.svelte';
-	import { companyManager, companyState } from '$lib/managers/CompanyManager.svelte';
 	import { vaultManager, vaultState } from '$lib/managers/VaultManager.svelte';
 	import NewGoalDialog from './components/NewGoalDialog.svelte';
 	import { Badge } from '$lib/components/ui/badge';
@@ -18,7 +17,6 @@
 		if (vaultState.status !== 'ready') return;
 		if (goalState.goals.length === 0 && !goalState.isLoading) void goalManager.load();
 		if (bucketState.buckets.length === 0 && !bucketState.isLoading) void bucketManager.load();
-		if (companyState.companies.length === 0 && !companyState.isLoading) void companyManager.load();
 	});
 
 	$effect(() => {
@@ -67,8 +65,8 @@
 	{:else if goalState.goals.length === 0}
 		<div class="rounded-lg border border-dashed p-10 text-center">
 			<p class="text-sm text-muted-foreground">
-				No goals yet. A goal is a note in <code class="font-mono">Goals/</code> with
-				<code class="font-mono">categories: [[Goals]]</code>, connected to a bucket or a company.
+				No goals yet. A goal is a note with
+				<code class="font-mono">categories: [[Goals]]</code>, sitting in a bucket.
 			</p>
 			<Button class="mt-4" variant="outline" size="sm" onclick={() => (newGoalOpen = true)}>
 				Create the first one
@@ -91,11 +89,10 @@
 								<div class="flex items-start justify-between gap-3">
 									<p class="text-sm font-medium leading-snug">{goal.name}</p>
 									{#if goal.parentViolation}
-										<Badge variant="destructive">connected to two things</Badge>
+										<Badge variant="destructive">in two buckets</Badge>
 									{:else if goal.parent}
 										<Badge variant="outline">
-											{goal.parent.kind === 'company' ? '🏢' : '🪣'}
-											{goal.parent.name}
+											🪣 {goal.parent.name}
 										</Badge>
 									{/if}
 								</div>

@@ -19,8 +19,15 @@ import { readdir, readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { categoryNames } from './categories';
-import { parentViolation, parentsOn, setParent, type ParentedType } from '$lib/models/Parent';
+import { categoryNames, tagNames } from './categories';
+import {
+	bucketsOn,
+	parentViolation,
+	projectsOn,
+	readParent,
+	setParent,
+	type ParentedType
+} from '$lib/models/Parent';
 import {
 	getBoolean,
 	getString,
@@ -137,6 +144,7 @@ describe.skipIf(!vaultRoot)(`real vault at ${vaultRoot}`, () => {
 					title: stripBang(name),
 					folder: slash === -1 ? '' : vaultPath.slice(0, slash),
 					categories: categoryNames(note),
+					tags: tagNames(note),
 					note
 				};
 			});
@@ -151,9 +159,9 @@ describe.skipIf(!vaultRoot)(`real vault at ${vaultRoot}`, () => {
 		const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
 		const uncategorised = indexed.filter((note) => note.categories.length === 0);
 
-		const roots = ['Projects', 'Companies', 'Goals', 'Tasks', 'Categories/Buckets'];
+		const roots = ['Projects', 'Companies', 'Notes/Goals', 'Tasks', 'Buckets'];
 		const lines: string[] = [];
-		for (const category of ['Projects', 'Companies', 'Tasks', 'Goals', 'Buckets']) {
+		for (const category of ['Projects', 'Companies', 'Tasks', 'Goals']) {
 			const members = indexed.filter((note) =>
 				note.categories.some((c) => c.toLowerCase() === category.toLowerCase())
 			);
@@ -175,6 +183,10 @@ describe.skipIf(!vaultRoot)(`real vault at ${vaultRoot}`, () => {
 					.map(([name, n]) => `${name} (${n})`)
 					.join(', ')}\n` +
 				`lull-pm's types:\n${lines.join('\n')}\n` +
+				`  Buckets (#buckets tag): ${indexed
+					.filter((note) => note.tags.includes('buckets'))
+					.map((note) => note.title)
+					.join(', ')}\n` +
 				`${uncategorised.length} note(s) carry no category and are left alone.\n`
 		);
 
@@ -183,8 +195,8 @@ describe.skipIf(!vaultRoot)(`real vault at ${vaultRoot}`, () => {
 	});
 
 	/**
-	 * The rule, checked against every note that has one: a project connects to a company or a
-	 * bucket, a task to a project or a bucket. Never both, never two.
+	 * The rule, checked against every note that has one: a project or goal sits in one bucket, a
+	 * task in one bucket and at most one project.
 	 *
 	 * Read-only. Violations are reported, not repaired — a note connected to two things is a
 	 * decision only the user can make, and guessing which link to drop is exactly the kind of quiet
@@ -211,9 +223,10 @@ describe.skipIf(!vaultRoot)(`real vault at ${vaultRoot}`, () => {
 
 				const violation = parentViolation(note, type);
 				if (violation) {
-					const links = parentsOn(note, type)
-						.map((parent) => `${parent.kind}:${parent.name}`)
-						.join(' + ');
+					const links = [
+						...bucketsOn(note).map((name) => `bucket:${name}`),
+						...(type === 'task' ? projectsOn(note).map((name) => `project:${name}`) : [])
+					].join(' + ');
 					violations.push(`${path} — ${violation} (${links})`);
 				}
 			}
@@ -248,16 +261,17 @@ describe.skipIf(!vaultRoot)(`real vault at ${vaultRoot}`, () => {
 				? 'project'
 				: categories.includes('tasks')
 					? 'task'
-					: null;
+					: categories.includes('goals')
+						? 'goal'
+						: null;
 			if (!type) continue;
 
 			// A note that already breaks the rule has no single parent to rewrite; it is reported
 			// by the test above instead.
 			if (parentViolation(note, type)) continue;
 
-			const [parent] = parentsOn(note, type);
 			checked++;
-			if (setParent(raw, type, parent ?? null) !== raw) moved.push(`${path} [${type}]`);
+			if (setParent(raw, type, readParent(note, type)) !== raw) moved.push(`${path} [${type}]`);
 		}
 
 		expect(checked).toBeGreaterThan(0);

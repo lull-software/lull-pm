@@ -1,10 +1,9 @@
 /**
  * Goals, read and written as notes claiming `categories: [[Goals]]`.
  *
- * Same discipline as the other services. lull-pm creates the `Goals/` folder when it writes the
- * first goal, because it has to put the note somewhere; it does not create `Categories/Goals.md`
- * (the vault already has one) or a `Goals.base`, and it will not write a `Templates/Goal
- * Template.md`. Those are the user's.
+ * Same discipline as the other services. New goals go beside the existing ones in `Notes/Goals/`;
+ * lull-pm does not create `Categories/Goals.md` (the vault already has one), a `Goals.base`, or a
+ * `Templates/Goal Template.md`. Those are the user's.
  */
 
 import { createNote, editNote, joinPath, noteName, type VaultAdapter } from '$lib/vault/adapter';
@@ -27,7 +26,7 @@ export const GOAL_CATEGORY = 'Goals';
 
 export interface CreateGoalOptions {
 	status?: string;
-	/** What the goal is connected to: a company or a bucket. */
+	/** The bucket the goal sits in. */
 	parent?: Parent | null;
 	today?: Date;
 }
@@ -81,7 +80,7 @@ export class GoalService {
 		return this.readGoal(path);
 	}
 
-	/** Connect the goal to a company or a bucket — never both. See `TaskService.setParent`. */
+	/** Put the goal in a bucket, or in none. See `models/Parent.ts`. */
 	async setParent(path: string, parent: Parent | null): Promise<Goal> {
 		await editNote(this.adapter, path, (raw) => setParent(raw, 'goal', parent));
 		return this.readGoal(path);
